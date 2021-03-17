@@ -1,4 +1,4 @@
-# ALUNO: **<EDITE AQUI COM O SEU NOME COMPLETO! Se for dupla, coloque os dois nomes!>**
+# ALUNO: **CÁCIO LUCAS NOBRE DE ALMEIDA BEZERRA** e **MICAEL FELIPE DOS SANTOS**
 
 # Atividade: Consenso e API (06-consensus)
 

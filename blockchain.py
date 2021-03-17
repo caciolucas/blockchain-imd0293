@@ -4,6 +4,7 @@ from time import time
 import copy
 import random
 import bitcoinlib # pip install bitcoin
+from math import ceil, floor
 
 DIFFICULTY = 4 # Quantidade de zeros (em hex) iniciais no hash valido.
 
@@ -49,57 +50,54 @@ class Blockchain(object):
         return nonce
 
     def createTransaction(self, sender, recipient, amount, timestamp, privWifKey):
-        # Cria uma nova transação, assinada pela chave privada WIF do remetente.
-        tx = {
-            'sender': sender,
-            'recipient': recipient,
-            'amount': amount,
-            'timestamp': timestamp
+        # Cria uma nova transação, assinada pela chave privada WIF do remetente
+        # e inclua no memory pool
+        transaction = {
+            "sender": sender,
+            "recipient": recipient,
+            "amount": amount,
+            "timestamp": timestamp,
         }
- 
-        tx['signature'] = Blockchain.sign(privWifKey, json.dumps(tx, sort_keys=True))
-        self.memPool.append(tx)
-
-        return self.prevBlock['index'] + 1
-
-    def isValidChain(self, chain):
-        # Dado uma chain passada como parâmetro, faz toda a verificação se o blockchain é válido:
-        # 1. PoW válido
-        # 2. Transações assinadas e válidas
-        # 3. Merkle Root válido
+        signature = Blockchain.sign(privWifKey, json.dumps(transaction, sort_keys=True))
+        transaction['signature']=signature
+        self.memPool.append(transaction)
         pass
-
-    def resolveConflicts(self):
-        # Consulta todos os nós registrados, e verifica se algum outro nó tem um blockchain com mais PoW e válido. Em caso positivo,
-        # substitui seu próprio chain.
-        pass
+        
 
     @staticmethod
     def generateMerkleRoot(transactions):
         # Gera a Merkle Root de um bloco com as respectivas transações.
-        if (len(transactions) == 0): # Para o bloco genesis
-            return '0'*64
+        # Retorne a string referente a merkle root.
 
-        txHashes = [] 
-        for tx in transactions:
-            txHashes.append(Blockchain.generateHash(tx))
+        n_steps = ceil(len(transactions)/2)
+        # print(f'Numero de steps: {n_steps}')
+        steps = [[Blockchain.generateHash(transaction) for transaction in transactions]]
+        # print(json.dumps(steps,indent=2))
+        for i in range(0,n_steps):
+            n_hashs=ceil(len(steps[-1])/2)
+            # print(f"Prox numero de hashs: {n_hashs}")
+            step=[]
+            for x in range(0,len(steps[-1]),2):
+                y=x+1
+                if(y<len(steps[-1])):
+                    # print(f"Calculando hash do proximo step com ({x} e {y}): {steps[-1][x]} e {steps[-1][y]}")
+                    step.append(Blockchain.generateHash([steps[-1][x],steps[-1][y]]))
+                    # print(f"Adicionando hash calculada: {Blockchain.generateHash([steps[-1][x],steps[-1][y]])}")
 
-        return Blockchain.hashTxHashes(txHashes)
-
-    @staticmethod
-    def hashTxHashes(txHashes):
-        # Função auxiliar recursiva para cálculo do MerkleRoot
-        if (len(txHashes) == 1): # Condição de parada.
-            return txHashes[0]
-
-        if (len(txHashes)%2 != 0): # Confere se a quantidade de hashes é par.
-            txHashes.append(txHashes[-1]) # Se não for, duplica o último hash.
-
-        newTxHashes = []
-        for i in range(0,len(txHashes),2):        
-            newTxHashes.append(Blockchain.generateHash(Blockchain.generateHash(txHashes[i]) + Blockchain.generateHash(txHashes[i+1])))
+            if (len(steps[-1])%2!=0):
+                # print(f"Quantidade ímpar, repassando o último pra o próximo step: {steps[-1][-1]}")
+                step.append(steps[-1][-1])
+            # print("Step a seguir adicionado")
+            # print(json.dumps(step,indent=2))
+            # print(f'N Step correto? {"Sim" if n_hashs+1==len(step) else "Não"}')
+            steps.append(step)
+        # print("Steps atualizados ============================")
+        # print(json.dumps(steps,indent=2))
+        # print(f'N Steps corretos? {"Sim" if n_steps+1==len(steps) else "Não"}')
         
-        return Blockchain.hashTxHashes(newTxHashes)
+        if not len(steps[-1]):
+            return "0"*64
+        return steps[-1][-1]
 
     @staticmethod
     def isValidProof(block, nonce):
@@ -121,10 +119,86 @@ class Blockchain(object):
         blockCopy.pop("transactions", None)
         return Blockchain.generateHash(blockCopy)
 
-    def printChain(self):
-        # Imprime no console um formato verboso do blockchain.
-        print(json.dumps(self.chain, indent=2, sort_keys=True))
-        pass # Mantenha seu metodo de impressao do blockchain feito na pratica passada.
+    def printChain(self,short=False, color=False, expanded=False):
+        # Mantenha seu método de impressão do blockchain feito na prática passada.
+
+        
+        # Implemente aqui um método para imprimir de maneira verbosa e intuitiva o blockchain atual.
+        if color:
+            print('                                       \x1b[6;36;49m....\x1b[0m')
+            for block in self.chain[::-1]:
+                print(f"                                        \x1b[6;36;49m^^\x1b[0m")
+                print(f"                                        \x1b[6;36;49m||\x1b[0m")
+                print(f"                                        \x1b[6;36;49m||\x1b[0m")
+                print(f"        \x1b[1;36;49m+------------------------------------------------------------------+")
+                print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;36;49m{Blockchain.getBlockID(block)}\x1b[0m \x1b[1;36;49m|\x1b[0m")
+                print(f"        \x1b[1;36;49m+------------------------------------------------------------------+")
+                print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;30;46mÍndice:\x1b[0m         \x1b[1;30;46mTimestamp:\x1b[0m              \x1b[1;30;46mNonce:\x1b[0m                   \x1b[1;36;49m|\x1b[0m")
+                print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;36;49m{block['index']:06}\x1b[0m          \x1b[1;36;49m{int(block['timestamp'])}\x1b[0m              \x1b[1;36;49m{block['nonce']:015}\x1b[0m          \x1b[1;36;49m|\x1b[0m")
+                if not short:
+                    print(f"        \x1b[1;36;49m|\x1b[0m                                                                  \x1b[1;36;49m|\x1b[0m")
+                    print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;30;46mMerkle Root:\x1b[0m                                                     \x1b[1;36;49m|\x1b[0m")
+                    print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;36;49m{block['merkleRoot']}\x1b[0m \x1b[1;36;49m|\x1b[0m")
+                    print(f"        \x1b[1;36;49m|\x1b[0m                                                                  \x1b[1;36;49m|\x1b[0m")
+                    print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;30;46mTransações:\x1b[0m                                                      \x1b[1;36;49m|\x1b[0m")
+                    print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;36;49m{len(block['transactions']):05}\x1b[0m                                                            \x1b[1;36;49m|\x1b[0m")
+                    print(f"        \x1b[1;36;49m|\x1b[0m                                                                  \x1b[1;36;49m|\x1b[0m")
+                print(f"        \x1b[1;36;49m+------------------------------------------------------------------+")
+                if expanded:
+                    if len(block['transactions']):
+                        print(f"        \x1b[1;36;49m|   ---------------======**\x1b[0m  \x1b[1;30;46mTransações\x1b[0m\x1b[1;36;49m  **=====----------------   |\x1b[0m")
+                    for transaction in block['transactions']:
+                        print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;30;46mRemetente:\x1b[0m                              \x1b[1;30;46mTimestamp:\x1b[0m               \x1b[1;36;49m|\x1b[0m")
+                        print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;36;49m{transaction['sender']}\x1b[0m      \x1b[1;36;49m{transaction['timestamp']}\x1b[0m               \x1b[1;36;49m|\x1b[0m")
+                        print(f"        \x1b[1;36;49m|\x1b[0m                                                                  \x1b[1;36;49m|\x1b[0m")
+                        print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;30;46mDestinatario:\x1b[0m                           \x1b[1;30;46mQuantidade:\x1b[0m              \x1b[1;36;49m|\x1b[0m")
+                        print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;36;49m{transaction['recipient']}\x1b[0m      \x1b[1;36;49m{transaction['amount']:018.14f}\x1b[0m       \x1b[1;36;49m|\x1b[0m")
+                        if(not transaction==block['transactions'][-1]):
+                            print(f"        \x1b[1;36;49m|        -----------------======****=====-----------------         |\x1b[0m")
+                        # print(f"        |                             --==--                               |")
+                    if len(block['transactions']):
+                        print(f"        \x1b[1;36;49m+------------------------------------------------------------------+\x1b[0m")
+                print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;30;46mHash do último bloco:\x1b[0m                                            \x1b[1;36;49m|\x1b[0m")
+                print(f"        \x1b[1;36;49m|\x1b[0m \x1b[1;36;49m{block['previousHash']}\x1b[0m \x1b[1;36;49m|\x1b[0m")
+                print(f"        \x1b[1;36;49m+------------------------------------------------------------------+")
+        else:
+            print('                                       ....')
+            for block in self.chain[::-1]:
+                print(f"                                        ^^")
+                print(f"                                        ||")
+                print(f"                                        ||")
+                print(f"        +------------------------------------------------------------------+")
+                print(f"        | {Blockchain.getBlockID(block)} |")
+                print(f"        +------------------------------------------------------------------+")
+                print(f"        | Índice:         Timestamp:              Nonce:                   |")
+                print(f"        | {block['index']:06}          {int(block['timestamp'])}              {block['nonce']:015}          |")
+                if not short:
+                    print(f"        |                                                                  |")
+                    print(f"        | Merkle Root:                                                     |")
+                    print(f"        | {block['merkleRoot']} |")
+                    print(f"        |                                                                  |")
+                    print(f"        | Transações:                                                      |")
+                    print(f"        | {len(block['transactions']):05}                                                            |")
+                    print(f"        |                                                                  |")
+                print(f"        +------------------------------------------------------------------+")
+                if expanded:
+                    if len(block['transactions']):
+                        print(f"        |   ---------------======**  Transações  **=====----------------   |")
+                    for transaction in block['transactions']:
+                        print(f"        | Remetente:                              Timestamp:               |")
+                        print(f"        | {transaction['sender']}      {transaction['timestamp']}               |")
+                        print(f"        |                                                                  |")
+                        print(f"        | Destinatario:                           Quantidade:              |")
+                        print(f"        | {transaction['recipient']}      {transaction['amount']:018.14f}       |")
+                        if(not transaction==block['transactions'][-1]):
+                            print(f"        |        -----------------======****=====-----------------         |")
+                        # print(f"        |                             --==--                               |")
+                    if len(block['transactions']):
+                        print(f"        +------------------------------------------------------------------+")
+                print(f"        | Hash do último bloco:                                            |")
+                print(f"        | {block['previousHash']} |")
+                print(f"        +------------------------------------------------------------------+")
+        pass 
 
     @property
     def prevBlock(self):
@@ -157,3 +231,32 @@ class Blockchain(object):
 
 # Implemente sua API com os end-points indicados no GitHub Classroom.
 # Implemente um teste com ao menos 2 nós simultaneos.
+
+blockchain = Blockchain()
+
+from flask import Flask, request
+app = Flask(__name__)
+
+@app.route('/chain', methods=['GET'])
+def chain():
+    return json.dumps(blockchain.chain)
+
+@app.route('/transactions/mempool', methods=['GET'])
+def transactions_mempool():
+    return json.dumps(blockchain.memPool)
+
+@app.route('/transactions/create', methods=['POST'])
+def transactions_create():
+    data = request.form
+    blockchain.createTransaction(data['sender'], data['recipient'], data['amount'], data['timestamp'], data['privWifKey'])
+    return json.dumps(blockchain.memPool[-1])
+
+@app.route('/mine', methods=['GET'])
+def mine():
+    blockchain.createBlock(previousHash=blockchain.getBlockID(blockchain.prevBlock))
+    blockchain.mineProofOfWork(blockchain.prevBlock)
+    return json.dumps(blockchain.prevBlock)
+
+
+if __name__ == '__main__':
+    app.run(port=5000)
