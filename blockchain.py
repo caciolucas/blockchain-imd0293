@@ -3,6 +3,8 @@ import json
 from time import time
 import copy
 import random
+
+import requests
 import bitcoinlib # pip install bitcoin
 from math import ceil, floor
 
@@ -52,6 +54,7 @@ class Blockchain(object):
     def createTransaction(self, sender, recipient, amount, timestamp, privWifKey):
         # Cria uma nova transação, assinada pela chave privada WIF do remetente
         # e inclua no memory pool
+
         transaction = {
             "sender": sender,
             "recipient": recipient,
@@ -63,6 +66,41 @@ class Blockchain(object):
         self.memPool.append(transaction)
         pass
         
+    def isValidChain(self, chain):
+        # Dado uma chain passada como parâmetro, faz toda a verificação se o blockchain é válido:
+
+        for block in chain:
+            # 1. PoW válido
+            if not self.isValidProof(block,block['nonce']):
+                return False
+
+            # 2. Transações assinadas e válidas
+            transactions = block['transactions']
+            for transaction in transactions:
+                signature = transaction['signature']
+                message = {chave:transaction[chave] for chave in transaction if chave!='signature'}
+                # Buscando address a partir da chave estática do arquivo de api_test.py
+                address = self.getBitcoinAddressFromWifCompressed('L1US57sChKZeyXrev9q7tFm2dgA2ktJe2NP3xzXRv6wizom5MN1U')
+                if not self.verifySignature(address,signature,json.dumps(message, sort_keys=True)):
+                    return False
+            
+            # 3. Merkle Root válido
+            if block['merkleroot'] != self.generateMerkleRoot(transactions):
+                return False
+
+        return True
+
+    def resolveConflicts(self):
+        # Consulta todos os nós registrados, e verifica se algum outro nó tem um blockchain com mais PoW e válido. Em caso positivo,
+        # substitui seu próprio chain.
+
+        for node in list(self.nodes):
+            node_chain = requests.get(node+'/chain').json()
+            if len(node_chain) > len(self.chain):
+                if self.isValidChain(node_chain):
+                    self.chain = node_chain
+                    return True
+        return False
 
     @staticmethod
     def generateMerkleRoot(transactions):
@@ -232,31 +270,3 @@ class Blockchain(object):
 # Implemente sua API com os end-points indicados no GitHub Classroom.
 # Implemente um teste com ao menos 2 nós simultaneos.
 
-blockchain = Blockchain()
-
-from flask import Flask, request
-app = Flask(__name__)
-
-@app.route('/chain', methods=['GET'])
-def chain():
-    return json.dumps(blockchain.chain)
-
-@app.route('/transactions/mempool', methods=['GET'])
-def transactions_mempool():
-    return json.dumps(blockchain.memPool)
-
-@app.route('/transactions/create', methods=['POST'])
-def transactions_create():
-    data = request.form
-    blockchain.createTransaction(data['sender'], data['recipient'], data['amount'], data['timestamp'], data['privWifKey'])
-    return json.dumps(blockchain.memPool[-1])
-
-@app.route('/mine', methods=['GET'])
-def mine():
-    blockchain.createBlock(previousHash=blockchain.getBlockID(blockchain.prevBlock))
-    blockchain.mineProofOfWork(blockchain.prevBlock)
-    return json.dumps(blockchain.prevBlock)
-
-
-if __name__ == '__main__':
-    app.run(port=5000)
