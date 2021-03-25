@@ -7,8 +7,8 @@
             <template #left>
               <Button label="Nós" icon="fas fa-project-diagram" class="p-button-info p-mr-2" @click="showNodes" />
               <Button label="Mempool" icon="fas fa-brain" class="p-button-help p-mr-2" @click="showMempool" />
-              <Button label="Minerar" icon="fas fa-wrench" class="p-button-warning p-mr-2" @click="mine" />
-              <Button label="Resolver" icon="fas fa-balance-scale" class="p-button-danger" @click="resolve" />
+              <Button label="Minerar" :icon="{'fas fa-wrench':!this.miningStatus,'pi pi-spin pi-spinner':this.miningStatus}" class="p-button-warning p-mr-2" @click="mine" />
+              <Button label="Resolver" :icon="{'fas fa-balance-scale':!this.resolveStatus,'pi pi-spin pi-spinner':this.resolveStatus}" class="p-button-danger" @click="resolve" />
             </template>
           </Toolbar>
 
@@ -31,8 +31,8 @@
             <template #left>
               <Button label="Nós" icon="fas fa-project-diagram" class="p-button-info p-mr-2" @click="showNodes" />
               <Button label="Mempool" icon="fas fa-brain" class="p-button-help p-mr-2" @click="showMempool" />
-              <Button label="Minerar" icon="fas fa-wrench" class="p-button-warning p-mr-2" @click="mine" />
-              <Button label="Resolver" icon="fas fa-balance-scale" class="p-button-danger" @click="resolve" />
+              <Button label="Minerar" :icon="{'fas fa-wrench':!this.miningStatus,'pi pi-spin pi-spinner':this.miningStatus}" class="p-button-warning p-mr-2" @click="mine" />
+              <Button label="Resolver" :icon="{'fas fa-balance-scale':!this.resolveStatus,'pi pi-spin pi-spinner':this.resolveStatus}" class="p-button-danger" @click="resolve" />
             </template>
           </Toolbar>
 
@@ -219,7 +219,9 @@ export default {
       newNodeURL: null,
       currentNode:0,
       currentNodeName: 'A',
-      mempool: null
+      mempool: null,
+      miningStatus: false,
+      resolveStatus: false,
     };
   },
   mounted() {
@@ -251,6 +253,9 @@ export default {
     addNode(){
       this.axios.post(`http://localhost:500${this.currentNode}/node/register`,{node_address:this.newNodeURL}).then((response) => {
         this.nodes = response.data;
+        this.newNodeURL = null;
+        this.$toast.add({severity:'success',summary:'Nó adicionado!', detail:`O endereço do nó foi adicionado aos registros`,life:5000})
+
       })
     },
     addNewTransaction(){
@@ -258,11 +263,15 @@ export default {
       this.axios.post(`http://localhost:500${this.currentNode}/transactions/create`,this.newTransactionData).then((response)=>{
         this.mempool = response.data;
         this.newTransactionData = {};
+        this.$toast.add({severity:'success',summary:'Transação adicionada!', detail:`Transação adicionada ao mempool!`,life:5000})
+        
       })
     },
     mine(){
+      this.miningStatus = true;
       this.$toast.add({severity:'success',summary:'Minerando bloco!', detail:"Minerando um bloco com as transações da mempool!",life:5000})
       this.axios.get(`http://localhost:500${this.currentNode}/mine`).then((response)=>{
+        this.miningStatus = false;
         this.$toast.removeAllGroups()
         this.$toast.add({severity:'success',summary:'Bloco minerado adicionado!', detail:`O bloco foi minerado e a chain foi atualizada! (Nonce: ${response.data.nonce})`,life:5000})
         this.axios.get(`http://localhost:500${this.currentNode}/chain`).then((response) => {
@@ -272,7 +281,9 @@ export default {
       })
     },
     resolve(){
+      this.resolveStatus = true;
       this.axios.get(`http://localhost:500${this.currentNode}/node/resolve`).then((response)=>{
+        this.resolveStatus = false;
         if (response.data.changed){
           this.axios.get(`http://localhost:500${this.currentNode}/chain`).then((response) => {
             this.chain = response.data;
