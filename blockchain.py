@@ -68,7 +68,6 @@ class Blockchain(object):
         
     def isValidChain(self, chain):
         # Dado uma chain passada como parâmetro, faz toda a verificação se o blockchain é válido:
-
         for block in chain:
             # 1. PoW válido
             if not self.isValidProof(block,block['nonce']):
@@ -85,9 +84,8 @@ class Blockchain(object):
                     return False
             
             # 3. Merkle Root válido
-            if block['merkleroot'] != self.generateMerkleRoot(transactions):
+            if block['merkleRoot'] != self.generateMerkleRoot(transactions):
                 return False
-
         return True
 
     def resolveConflicts(self):
@@ -95,7 +93,9 @@ class Blockchain(object):
         # substitui seu próprio chain.
 
         for node in list(self.nodes):
-            node_chain = requests.get(node+'/chain').json()
+            node_chain = [block['block'] for block in list(requests.get(node+'/chain').json())]
+            
+
             if len(node_chain) > len(self.chain):
                 if self.isValidChain(node_chain):
                     self.chain = node_chain

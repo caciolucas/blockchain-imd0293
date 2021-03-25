@@ -42,7 +42,6 @@ print(json.dumps(requests.get(NODE_A+'/node/resolve').json(),indent=2))
 
 # 7. Crie uma transação em B
 print("Transaction Criada em B ".ljust(85,'='))
-timestamp = int(time())
 amount = random.uniform(0.00000001, 100)
 payload = {
             'sender':sender, # remetente da transação;
@@ -61,7 +60,6 @@ print(json.dumps(requests.get(NODE_B+'/mine').json(),indent=2))
 for y in range(0, 2): 
     # 7. Crie uma transação em B
     print("Transaction Criada em B ".ljust(85,'='))
-    timestamp = int(time())
     amount = random.uniform(0.00000001, 100)
     payload = {
                 'sender':sender, # remetente da transação;
@@ -79,13 +77,4 @@ for y in range(0, 2):
 # 10. Faça a resolução de conflitos em A (/nodes/resolve). Deve trocar o seu chain.
 print('Resolvendo conflitos em A '.ljust(85,'='))
 print(json.dumps(requests.get(NODE_A+'/node/resolve').json(),indent=2))
-
-
-
-
-# # print('Chain:')
-# # print(json.dumps(requests.get(BASE_URL+'/chain').json(),indent=2))
-
-# # print('Transactions na mempoll')
-# # print(json.dumps(requests.get(BASE_URL+'/transactions/mempool').json(),indent=2))
 
