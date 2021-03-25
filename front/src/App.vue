@@ -27,13 +27,14 @@
         </TabPanel>
         <TabPanel header="Node B">
           <div class="card">
-            <Toolbar>
-              <template #left>
-                <Button label="Nós" icon="fas fa-project-diagram" class="p-button-info p-mr-2" @click="showNodes" />
-                <Button label="Mempool" icon="fas fa-brain" class="p-button-help p-mr-2" @click="showMempool" />
-                <Button label="Minerar" icon="fas fa-wrench" class="p-button-warning" @click="mine" />
-              </template>
-            </Toolbar>
+          <Toolbar>
+            <template #left>
+              <Button label="Nós" icon="fas fa-project-diagram" class="p-button-info p-mr-2" @click="showNodes" />
+              <Button label="Mempool" icon="fas fa-brain" class="p-button-help p-mr-2" @click="showMempool" />
+              <Button label="Minerar" icon="fas fa-wrench" class="p-button-warning p-mr-2" @click="mine" />
+              <Button label="Resolver" icon="fas fa-balance-scale" class="p-button-danger" @click="resolve" />
+            </template>
+          </Toolbar>
 
             <h1>Chain do Node {{currentNodeName}}</h1>
             <Timeline :value="chain">
@@ -222,8 +223,6 @@ export default {
     };
   },
   mounted() {
-    this.$toast.add({severity:'success',summary:'Mempool recuperada!', detail:"Recuperada a mempool do nó selecionado",group:'nodeLoad'})
-
     this.axios.get("http://localhost:5000/chain").then((response) => {
       this.chain = response.data;
       this.chain.reverse();
@@ -262,10 +261,13 @@ export default {
       })
     },
     mine(){
-      this.axios.get(`http://localhost:500${this.currentNode}/mine`).then(()=>{
+      this.$toast.add({severity:'success',summary:'Minerando bloco!', detail:"Minerando um bloco com as transações da mempool!",life:5000})
+      this.axios.get(`http://localhost:500${this.currentNode}/mine`).then((response)=>{
+        this.$toast.removeAllGroups()
+        this.$toast.add({severity:'success',summary:'Bloco minerado adicionado!', detail:`O bloco foi minerado e a chain foi atualizada! (Nonce: ${response.data.nonce})`,life:5000})
         this.axios.get(`http://localhost:500${this.currentNode}/chain`).then((response) => {
           this.chain = response.data;
-          // this.chain.reverse();
+          this.chain.reverse();
         });
       })
     },
@@ -275,8 +277,12 @@ export default {
           this.axios.get(`http://localhost:500${this.currentNode}/chain`).then((response) => {
             this.chain = response.data;
             this.chain.reverse();
-            this.$toast.add({severity:'success',summary:'Chain recuperada!', detail:"Recuperada a blockchain do nó selecionado",group:'nodeLoad'})
+            this.$toast.add({severity:'success',summary:'Chain recuperada!', detail:"Recuperada a blockchain do nó selecionado"})
           });
+          this.$toast.add({severity:'success',summary:'Chain substituida!', detail:"Foi feita verificação e a chain do nó foi substituida por uma maior!",life:5000})
+        }
+        else{
+          this.$toast.add({severity:'success',summary:'Chain mantida!', detail:"A chain continua a mesma!",life:3000})
         }
       })
     },
@@ -287,15 +293,15 @@ export default {
       this.axios.get(`http://localhost:500${this.currentNode}/chain`).then((response) => {
         this.chain = response.data;
         this.chain.reverse();
-        this.$toast.add({severity:'success',summary:'Chain recuperada!', detail:"Recuperada a blockchain do nó selecionado",group:'nodeLoad'})
+        this.$toast.add({severity:'success',summary:'Chain recuperada!', detail:"Recuperada a blockchain do nó selecionado",life:3000})
       });
       this.axios.get(`http://localhost:500${this.currentNode}/node/list`).then((response) => {
         this.nodes = response.data;
-        this.$toast.add({severity:'success',summary:'Nodes recuperados!', detail:"Recuperados os demais nós registrados do nó selecionado",group:'nodeLoad'})
+        this.$toast.add({severity:'success',summary:'Nodes recuperados!', detail:"Recuperados os demais nós registrados do nó selecionado",life:3000})
       });
       this.axios.get(`http://localhost:500${this.currentNode}/transactions/mempool`).then((response) => {
         this.mempool = response.data;
-        this.$toast.add({severity:'success',summary:'Mempool recuperada!', detail:"Recuperada a mempool do nó selecionado",group:'nodeLoad'})
+        this.$toast.add({severity:'success',summary:'Mempool recuperada!', detail:"Recuperada a mempool do nó selecionado",life:3000})
       });
     }
   },
